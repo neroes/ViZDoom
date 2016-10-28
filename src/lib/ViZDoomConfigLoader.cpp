@@ -187,6 +187,9 @@ namespace vizdoom {
         if (str == "secretcount") return SECRETCOUNT;
         if (str == "fragcount") return FRAGCOUNT;
         if (str == "health") return HEALTH;
+        if (str == "player_position_x") return PLAYER_POSITION_X;
+        if (str == "player_position_x") return PLAYER_POSITION_Y;
+        if (str == "player_position_x") return PLAYER_POSITION_Z;
         if (str == "armor") return ARMOR;
         if (str == "dead") return DEAD;
         if (str == "on_ground") return ON_GROUND;

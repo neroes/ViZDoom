@@ -892,6 +892,12 @@ namespace vizdoom {
                 return static_cast<int>(this->gameState->PLAYER_NUMBER);
             case PLAYER_COUNT:
                 return static_cast<int>(this->gameState->PLAYER_COUNT);
+            case PLAYER_POSITION_X:
+                return static_cast<int>(this->gameState->PLAYER_POSITION[0]);
+            case PLAYER_POSITION_Y:
+                return static_cast<int>(this->gameState->PLAYER_POSITION[1]);
+            case PLAYER_POSITION_Z:
+                return static_cast<int>(this->gameState->PLAYER_POSITION[2]);
         }
 
         if(var >= AMMO0 && var <= AMMO9){

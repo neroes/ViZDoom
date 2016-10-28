@@ -169,7 +169,10 @@ namespace vizdoom{
         WEAPON7,
         WEAPON8,
         WEAPON9,
-
+        
+        PLAYER_POSITION_X,
+        PLAYER_POSITION_Y,
+        PLAYER_POSITION_Z,
         PLAYER_NUMBER,
         PLAYER_COUNT,
         PLAYER1_FRAGCOUNT,
