@@ -56,6 +56,7 @@ class Learner:
                  test_episodes_per_epoch=2,
                  frame_repeat=12,
                  p_decay=0.45,
+                 reward_exploration=False,
                  resolution=(30, 45),
                  model_savefile="/tmp/model.ckpt",
                  save_model=True,
@@ -75,6 +76,7 @@ class Learner:
         self.model_savefile = model_savefile
         self.save_model = save_model
         self.load_model = load_model
+        self.reward_exploration = reward_exploration
 
         # Positions traversed during an episode
         self.positions = []
@@ -221,15 +223,7 @@ class Learner:
         img = img.astype(np.float32)
         return img
 
-    def learn(self, game, actions, visual=False, reward_exploration=False):
-        '''
-        game.set_window_visible(visual)
-        game.set_mode(Mode.PLAYER)
-        game.init()
-        '''
-        game.set_window_visible(visual)
-        game.set_mode(Mode.PLAYER)
-        game.init()
+    def learn(self, server, actions, visual=False):
 
         saver = tf.train.Saver()
         if self.load_model:
@@ -248,21 +242,30 @@ class Learner:
             train_scores = []
 
             print("Training...")
-            game.new_episode()
+            server.restart()
             self.positions = []
             score = 0
             for learning_step in trange(self.learning_steps_per_epoch):
-                self.perform_learning_step(game, actions, epoch, reward_exploration)
-                if reward_exploration:
-                    score += self.position_reward(game, append=False)
-                if game.is_episode_finished():
-                    if not reward_exploration:
-                        score = game.get_total_reward()
+                if server.game.is_player_dead():
+                    if self.reward_exploration:
+                        train_scores.append(score)
+                        train_episodes_finished += 1
+                        score = 0
+                    self.positions = []
+                    server.game.respawn_player()
+
+                if server.game.is_episode_finished():
+                    if not self.reward_exploration:
+                        score = server.game.get_total_reward()
                     train_scores.append(score)
-                    game.new_episode()
+                    server.game.new_episode()
                     train_episodes_finished += 1
                     self.positions = []
                     score = 0
+
+                self.perform_learning_step(server.game, actions, epoch, self.reward_exploration)
+                if self.reward_exploration:
+                    score += self.position_reward(server.game, append=False)
 
             print("%d training episodes played." % train_episodes_finished)
 
@@ -274,17 +277,17 @@ class Learner:
             print("\nTesting...")
             test_scores = []
             for test_episode in trange(self.test_episodes_per_epoch):
-                game.new_episode()
+                server.restart()
                 self.positions = []
                 score = 0
-                while not game.is_episode_finished():
-                    state = self.preprocess(game.get_state().screen_buffer)
+                while not server.game.is_episode_finished():
+                    state = self.preprocess(server.game.get_state().screen_buffer)
                     best_action_index = self.fn_get_best_action(state)
-                    game.make_action(actions[best_action_index], self.frame_repeat)
-                    if reward_exploration:
-                        score += self.position_reward(game, append=True)
-                if not reward_exploration:
-                    score = game.get_total_reward()
+                    server.game.make_action(actions[best_action_index], self.frame_repeat)
+                    if self.reward_exploration:
+                        score += self.position_reward(server.game, append=True)
+                if not self.reward_exploration:
+                    score = server.game.get_total_reward()
                 test_scores.append(score)
 
             test_scores = np.array(test_scores)
@@ -298,59 +301,88 @@ class Learner:
 
             print("Total elapsed time: %.2f minutes" % ((time() - time_start) / 60.0))
 
-        game.close()
+        server.game.close()
         print("======================================")
         print("Training finished.")
 
-    def play(self, game, actions, episodes_to_watch=1, reward_exploration=False):
-        game.set_window_visible(True)
-        game.set_mode(Mode.ASYNC_PLAYER)
-        game.init()
+    def play(self, server, actions, episodes_to_watch=1):
 
         print("Loading model from: ", self.model_savefile)
         saver = tf.train.Saver()
         saver.restore(self.session, self.model_savefile)
 
         for _ in range(episodes_to_watch):
-            game.new_episode()
+            server.restart()
             score = 0
-            while not game.is_episode_finished():
-                state = self.preprocess(game.get_state().screen_buffer)
+            while not server.game.is_episode_finished():
+                state = self.preprocess(server.game.get_state().screen_buffer)
                 best_action_index = self.fn_get_best_action(state)
                 # Instead of make_action(a, frame_repeat) in order to make the animation smooth
-                game.set_action(actions[best_action_index])
+                server.game.set_action(actions[best_action_index])
                 for _ in range(self.frame_repeat):
-                    game.advance_action()
+                    server.game.advance_action()
 
-                if reward_exploration:
-                    score += self.position_reward(game, append=True)
+                if self.reward_exploration:
+                    score += self.position_reward(server.game, append=True)
 
             # Sleep between episodes
             sleep(1.0)
-            if not reward_exploration:
-                score = game.get_total_reward()
+            if not self.reward_exploration:
+                score = server.game.get_total_reward()
             print("Total score: ", score)
+        server.game.close
 
+class DoomServer:
 
-# Creates and initializes ViZDoom environment.
-def initialize_vizdoom(config_file_path):
-    print("Initializing doom...")
-    game = DoomGame()
-    game.load_config(config_file_path)
-    game.set_window_visible(False)
-    game.set_screen_format(ScreenFormat.GRAY8)
-    game.set_screen_resolution(ScreenResolution.RES_640X480)
-    #game.init()
-    print("Doom initialized.")
-    return game
+    def __init__(self, screen_resolution, config_file_path, deathmatch=False, bots=7, visual=False, async=True):
+        self.screen_resolution = screen_resolution
+        self.deathmatch = deathmatch
+        self.bots = bots
+        print("Initializing doom...")
+        self.game = DoomGame()
+        self.game.load_config(config_file_path)
+        self.game.set_window_visible(visual)
+        self.game.set_screen_format(ScreenFormat.GRAY8)
+        self.game.set_screen_resolution(self.screen_resolution)
+        if deathmatch:
+            #self.game.set_doom_map("map01")  # Limited deathmatch.
+            self.game.set_doom_map("map02")  # Full deathmatch.
+            # Start multiplayer game only with your AI (with options that will be used in the competition, details in cig_host example).
+            self.game.add_game_args("-host 1 -deathmatch +timelimit 2.0 "
+                               "+sv_forcerespawn 1 +sv_noautoaim 1 +sv_respawnprotect 1 +sv_spawnfarthest 1")
+            # Name your agent and select color
+            # colors: 0 - green, 1 - gray, 2 - brown, 3 - red, 4 - light gray, 5 - light brown, 6 - light red, 7 - light blue
+            self.game.add_game_args("+name AI +colorset 0")
+
+        if (async):
+            self.game.set_mode(Mode.ASYNC_PLAYER)
+        else:
+            self.game.set_mode(Mode.PLAYER)
+
+        self.game.init()
+        self.restart()
+        print("Doom initialized.")
+
+    def restart(self):
+        if self.deathmatch:
+            self.game.send_game_command("removebots")
+            for i in range(self.bots):
+                self.game.send_game_command("addbot")
+        self.game.new_episode()
 
 #config = "../../examples/config/rocket_basic.cfg"
 #config = "../../examples/config/basic.cfg"
-config = "../../examples/config/simpler_basic.cfg"
+#config = "../config/simpler_basic.cfg"
+config = "../config/cig_train.cfg"
 #config = "../../examples/config/my_way_home.cfg"
-game = initialize_vizdoom(config)
-n = game.get_available_buttons_size()
+server = DoomServer(ScreenResolution.RES_320X240, config, deathmatch=True, visual=True, async=True)
+n = server.game.get_available_buttons_size()
 actions = [list(a) for a in it.product([0, 1], repeat=n)]
-learner = Learner(available_actions_count=len(actions), frame_repeat=8, epochs=20, test_episodes_per_epoch=10)
-learner.learn(game, actions, visual=True, reward_exploration=True)
-learner.play(game, actions,  episodes_to_watch=20, reward_exploration=True)
+learner = Learner(available_actions_count=len(actions),
+                  frame_repeat=1,
+                  epochs=20,
+                  learning_steps_per_epoch=10000,
+                  test_episodes_per_epoch=5, \
+                  reward_exploration=True, resolution=(64, 48))
+learner.learn(server, actions, visual=True)
+learner.play(server, actions, episodes_to_watch=20)
