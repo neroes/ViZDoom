@@ -53,10 +53,10 @@ namespace vizdoom {
 
     DoomController::DoomController() {
 
-        /* Message queues */
+		//SorensDoomController = this; // Søren
+		/* Message queues */
         this->MQController = nullptr;
         this->MQDoom = nullptr;
-
         /* Shared memory */
         this->SM = nullptr;
         this->gameState = nullptr;
@@ -859,6 +859,8 @@ namespace vizdoom {
     /* GameVariables getters */
     /*----------------------------------------------------------------------------------------------------------------*/
 
+	
+
     int DoomController::getGameVariable(GameVariable var){
 
         switch (var) {
@@ -898,6 +900,10 @@ namespace vizdoom {
                 return static_cast<int>(this->gameState->PLAYER_POSITION[1]);
             case PLAYER_POSITION_Z:
                 return static_cast<int>(this->gameState->PLAYER_POSITION[2]);
+			case PLAYER_DAMAGE_GIVEN:
+				return static_cast<int>(this->gameState->PLAYER_DAMAGE_GIVEN);
+			case PLAYER_DAMAGE_RECIVED:
+				return static_cast<int>(this->gameState->PLAYER_DAMAGE_RECIVED);
         }
 
         if(var >= AMMO0 && var <= AMMO9){
