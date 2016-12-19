@@ -1,4 +1,4 @@
-// Emacs style mode select	 -*- C++ -*- 
+// Emacs style mode select	 -*- Cdama++ -*- 
 //-----------------------------------------------------------------------------
 //
 // $Id:$
@@ -25,6 +25,7 @@
 
 
 // Data.
+#include "ViZDoomController.h"
 #include "doomdef.h"
 #include "gstrings.h"
 
@@ -58,6 +59,9 @@
 #include "g_level.h"
 #include "d_net.h"
 #include "d_netinf.h"
+
+#include "ViZDoomController.h" // Søren
+
 
 static FRandom pr_obituary ("Obituary");
 static FRandom pr_botrespawn ("BotRespawn");
@@ -955,7 +959,7 @@ int P_DamageMobj (AActor *target, AActor *inflictor, AActor *source, int damage,
 	{ // Shouldn't happen
 		return -1;
 	}
-
+	
 	//Rather than unnecessarily call the function over and over again, let's be a little more efficient.
 	fakedPain = (isFakePain(target, inflictor, damage)); 
 	forcedPain = (MustForcePain(target, inflictor));
@@ -1368,11 +1372,16 @@ int P_DamageMobj (AActor *target, AActor *inflictor, AActor *source, int damage,
 				if (fakedPain)
 					goto fakepain;
 				else
+				{
+					// Damage Note Søren
+					if (source->player != NULL)
+						source->player->mo->DamageGiven += damage;
+					if (target->player != NULL)
+						target->player->mo->DamageRecived += damage;
 					return damage;
+				}
 			}
 		}
-	
-		target->health -= damage;	
 	}
 
 	//
@@ -1439,7 +1448,12 @@ int P_DamageMobj (AActor *target, AActor *inflictor, AActor *source, int damage,
 					source = source->tracer;
 				}
 			}
+			if (source->player != NULL)
+				source->player->mo->DamageGiven += damage;
+			if (target->player != NULL)
+				target->player->mo->DamageRecived += damage;
 			target->Die (source, inflictor, flags);
+			// Damage Note Søren
 			return damage;
 		}
 	}
@@ -1553,6 +1567,11 @@ dopain:
 	{
 		return -1; //NOW we return -1!
 	}
+	// Damage Note Søren
+	if (source->player != NULL)
+		source->player->mo->DamageGiven += damage;
+	if (target->player != NULL)
+		target->player->mo->DamageRecived += damage;
 	return damage;
 }
 
