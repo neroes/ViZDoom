@@ -75,7 +75,6 @@ namespace vizdoom{
 #elif __APPLE__
     #define OS_OSX
 #endif
-
     class DoomController {
 
     public:
@@ -301,7 +300,7 @@ namespace vizdoom{
 
         SharedMemory *SM;
 
-        SMGameState *gameState;
+		public: SMGameState *gameState; // Søren
 
         SMInputState *input;
         SMInputState *_input;
@@ -358,7 +357,7 @@ namespace vizdoom{
         std::vector <std::string> doomArgs;
 
     };
-
+	//static DoomController *SorensDoomController; // Søren
 }
 
 #endif

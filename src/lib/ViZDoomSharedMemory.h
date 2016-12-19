@@ -149,6 +149,10 @@ namespace vizdoom {
         char PLAYER_N_NAME[MAX_PLAYERS][MAX_PLAYER_NAME_LENGTH];
         int PLAYER_N_FRAGCOUNT[MAX_PLAYERS];
 
+		// Damage Given Søren
+		int PLAYER_DAMAGE_GIVEN = 0;
+		int PLAYER_DAMAGE_RECIVED = 0;
+
         //LABELS
         unsigned int LABEL_COUNT;
         SMLabel LABEL[MAX_LABELS];
